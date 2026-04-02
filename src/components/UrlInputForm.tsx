@@ -2,12 +2,50 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 
 interface UrlInputFormProps {
   mode: 'A' | 'B'
 }
+
+interface FieldProps {
+  label: string
+  hint?: string
+  placeholder: string
+  value: string
+  onChange: (v: string) => void
+  index: number
+}
+
+const Field = ({ label, hint, placeholder, value, onChange, index }: FieldProps) => (
+  <div
+    className="flex flex-col gap-2"
+    style={{ animation: `fadeSlideIn 200ms ${index * 60}ms ease both` }}
+  >
+    <div className="flex items-baseline justify-between gap-2">
+      <label className="text-[15px] font-medium text-white/60">{label}</label>
+      {hint && (
+        <span className="font-mono text-[12px] text-white/25">{hint}</span>
+      )}
+    </div>
+    <div className="relative">
+      <input
+        type="url"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        spellCheck={false}
+        className={[
+          'w-full h-11 rounded-md px-3.5 text-[15px] font-mono',
+          'bg-white/[0.04] border border-white/[0.09] text-white/80',
+          'placeholder:text-white/20',
+          'transition-all duration-150',
+          'focus:outline-none focus:border-[#5e6ad2]/60 focus:bg-[#5e6ad2]/[0.04]',
+          'focus:ring-1 focus:ring-[#5e6ad2]/30',
+        ].join(' ')}
+      />
+    </div>
+  </div>
+)
 
 const UrlInputForm = ({ mode }: UrlInputFormProps) => {
   const router = useRouter()
@@ -15,8 +53,9 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
   const [figmaTargetUrl, setFigmaTargetUrl] = useState('')
   const [webUrl, setWebUrl] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -25,6 +64,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
         setError('Figma URL 두 개를 모두 입력해주세요.')
         return
       }
+      setLoading(true)
       const params = new URLSearchParams({
         mode: 'A',
         src: figmaSourceUrl.trim(),
@@ -36,6 +76,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
         setError('Figma URL과 Web URL을 모두 입력해주세요.')
         return
       }
+      setLoading(true)
       const params = new URLSearchParams({
         mode: 'B',
         src: figmaSourceUrl.trim(),
@@ -46,62 +87,97 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full max-w-lg">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {mode === 'A' ? (
         <>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-zinc-700">
-              Figma 기획서 URL
-            </label>
-            <Input
-              placeholder="https://www.figma.com/file/..."
-              value={figmaSourceUrl}
-              onChange={(e) => setFigmaSourceUrl(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-zinc-700">
-              Figma 디자인 시안 URL
-            </label>
-            <Input
-              placeholder="https://www.figma.com/file/..."
-              value={figmaTargetUrl}
-              onChange={(e) => setFigmaTargetUrl(e.target.value)}
-            />
-          </div>
+          <Field
+            index={0}
+            label="Figma 기획서 URL"
+            hint="Source"
+            placeholder="https://www.figma.com/file/..."
+            value={figmaSourceUrl}
+            onChange={setFigmaSourceUrl}
+          />
+          <Field
+            index={1}
+            label="Figma 디자인 시안 URL"
+            hint="Target"
+            placeholder="https://www.figma.com/file/..."
+            value={figmaTargetUrl}
+            onChange={setFigmaTargetUrl}
+          />
         </>
       ) : (
         <>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-zinc-700">
-              Figma 디자인 시안 URL
-            </label>
-            <Input
-              placeholder="https://www.figma.com/file/..."
-              value={figmaSourceUrl}
-              onChange={(e) => setFigmaSourceUrl(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-zinc-700">
-              실서비스 Web URL
-            </label>
-            <Input
-              placeholder="https://example.com/page"
-              value={webUrl}
-              onChange={(e) => setWebUrl(e.target.value)}
-            />
-          </div>
+          <Field
+            index={0}
+            label="Figma 디자인 시안 URL"
+            hint="Source"
+            placeholder="https://www.figma.com/file/..."
+            value={figmaSourceUrl}
+            onChange={setFigmaSourceUrl}
+          />
+          <Field
+            index={1}
+            label="실서비스 Web URL"
+            hint="Target"
+            placeholder="https://example.com/page"
+            value={webUrl}
+            onChange={setWebUrl}
+          />
         </>
       )}
 
       {error && (
-        <p className="text-sm text-red-600">{error}</p>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="flex-shrink-0 text-red-400">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M6.5 4v3M6.5 9h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <p className="text-[14px] text-red-400">{error}</p>
+        </div>
       )}
 
-      <Button type="submit" className="w-full">
-        비교 시작
-      </Button>
+      <button
+        type="submit"
+        disabled={loading}
+        className={[
+          'h-11 rounded-md px-5 text-[15px] font-medium transition-all duration-150',
+          'flex items-center justify-center gap-2',
+          loading
+            ? 'bg-[#5e6ad2]/50 text-white/40 cursor-not-allowed'
+            : 'bg-[#5e6ad2] text-white hover:bg-[#6b77d9] active:bg-[#5360c4]',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5e6ad2] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f0f0f]',
+        ].join(' ')}
+      >
+        {loading ? (
+          <>
+            <svg
+              width="13" height="13" viewBox="0 0 13 13"
+              className="animate-spin"
+              fill="none"
+            >
+              <circle cx="6.5" cy="6.5" r="5" stroke="white" strokeOpacity="0.3" strokeWidth="1.5" />
+              <path d="M6.5 1.5A5 5 0 0 1 11.5 6.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            분석 중…
+          </>
+        ) : (
+          <>
+            비교 시작
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M2.5 6.5h8M7.5 4 10 6.5 7.5 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </>
+        )}
+      </button>
+
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </form>
   )
 }
