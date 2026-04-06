@@ -1,64 +1,81 @@
-import { diffChars } from 'diff'
-import type { TextNode, CompareResult, DiffChar } from '@/types'
+import { compareTwoStrings } from 'string-similarity'
 
-/**
- * source와 target TextNode 배열을 순서 기반으로 1:1 매칭하여 비교 결과를 반환한다.
- * - source 길이 > target 길이: 남는 source 노드는 'missing'
- * - source 길이 < target 길이: 남는 target 노드는 'added'
- * - 텍스트 완전 일치: 'match'
- * - 텍스트 불일치: 'mismatch' + diff 정보 포함
- */
-export const compareNodes = (
-  source: TextNode[],
-  target: TextNode[]
-): CompareResult[] => {
-  const results: CompareResult[] = []
-  const maxLen = Math.max(source.length, target.length)
+export type PairStatus = 'pass' | 'needs_edit' | 'figma_only' | 'web_only'
 
-  for (let i = 0; i < maxLen; i++) {
-    const src = source[i] ?? null
-    const tgt = target[i] ?? null
+export interface ComparePair {
+  figmaText: string | null
+  webText: string | null
+  status: PairStatus
+  similarity?: number
+}
 
-    if (src === null) {
-      // target에만 존재
-      results.push({
-        id: `added-${i}`,
-        sourceNode: null,
-        targetNode: tgt,
-        status: 'added',
-      })
-    } else if (tgt === null) {
-      // source에만 존재
-      results.push({
-        id: `missing-${i}`,
-        sourceNode: src,
-        targetNode: null,
-        status: 'missing',
-      })
-    } else if (src.text === tgt.text) {
-      results.push({
-        id: `match-${i}`,
-        sourceNode: src,
-        targetNode: tgt,
-        status: 'match',
-      })
-    } else {
-      const rawDiff = diffChars(src.text, tgt.text)
-      const diff: DiffChar[] = rawDiff.map((part) => ({
-        value: part.value,
-        ...(part.added ? { added: true } : {}),
-        ...(part.removed ? { removed: true } : {}),
-      }))
+// 짝 허용 최소 유사도 (이 값 미만이면 매칭 안 함)
+const SIMILARITY_NEEDS_EDIT = 0.8
 
-      results.push({
-        id: `mismatch-${i}`,
-        sourceNode: src,
-        targetNode: tgt,
-        status: 'mismatch',
-        diff,
-      })
+function normalizeForPairing(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+// Pass 판정용 — Figma 줄바꿈 정규화, Web 원문은 그대로 비교
+function normalizeFigmaForPass(s: string): string {
+  return s.replace(/\s*[\n\r]+\s*/g, ' ')
+}
+
+export function buildComparePairs(figmaTexts: string[], webTexts: string[]): ComparePair[] {
+  const figmaForPairing = figmaTexts.map(normalizeForPairing)
+  const webForPairing = webTexts.map(normalizeForPairing)
+
+  // 각 Figma 항목에 대해 가장 유사한 Web 후보 수집
+  const candidates: Array<{ fi: number; wi: number; sim: number }> = []
+  for (let fi = 0; fi < figmaTexts.length; fi++) {
+    if (!figmaForPairing[fi]) continue
+    let bestWi = -1
+    let bestSim = -1
+    for (let wi = 0; wi < webTexts.length; wi++) {
+      if (!webForPairing[wi]) continue
+      const sim = compareTwoStrings(figmaForPairing[fi], webForPairing[wi])
+      if (sim > bestSim) {
+        bestSim = sim
+        bestWi = wi
+      }
+    }
+    if (bestWi >= 0) candidates.push({ fi, wi: bestWi, sim: bestSim })
+  }
+
+  // 유사도 내림차순 정렬 후 1:1 매칭 확정
+  candidates.sort((a, b) => b.sim - a.sim)
+
+  const figmaUsed = new Set<number>()
+  const webUsed = new Set<number>()
+  const pairs: ComparePair[] = []
+
+  for (const { fi, wi, sim } of candidates) {
+    if (figmaUsed.has(fi) || webUsed.has(wi)) continue
+    if (sim < SIMILARITY_NEEDS_EDIT) continue
+
+    figmaUsed.add(fi)
+    webUsed.add(wi)
+
+    const figmaOriginal = figmaTexts[fi]
+    const webOriginal = webTexts[wi]
+    const status = normalizeFigmaForPass(figmaOriginal) === webOriginal ? 'pass' : 'needs_edit'
+
+    pairs.push({ figmaText: figmaOriginal, webText: webOriginal, status, similarity: sim })
+  }
+
+  // 매칭 안 된 Figma → figma_only
+  for (let fi = 0; fi < figmaTexts.length; fi++) {
+    if (!figmaUsed.has(fi) && figmaForPairing[fi]) {
+      pairs.push({ figmaText: figmaTexts[fi], webText: null, status: 'figma_only' })
     }
   }
 
-  return results
+  // 매칭 안 된 Web → web_only
+  for (let wi = 0; wi < webTexts.length; wi++) {
+    if (!webUsed.has(wi) && webForPairing[wi]) {
+      pairs.push({ figmaText: null, webText: webTexts[wi], status: 'web_only' })
+    }
+  }
+
+  return pairs
 }

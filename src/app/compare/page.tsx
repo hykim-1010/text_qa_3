@@ -2,54 +2,40 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import type { CompareResult, TextNode } from '@/types'
+import type { ComparePair } from '@/lib/compare'
 import ResultViewer from '@/components/ResultViewer'
 
 interface Summary {
   total: number
-  match: number
-  mismatch: number
-  missing: number
-  added: number
+  pass: number
+  needs_edit: number
+  figma_only: number
+  web_only: number
 }
 
 type State =
   | { phase: 'loading'; message: string }
   | { phase: 'error'; message: string }
-  | { phase: 'done'; results: CompareResult[]; summary: Summary }
+  | { phase: 'done'; pairs: ComparePair[]; summary: Summary }
 
-function parseFigmaUrl(url: string): { fileKey: string; nodeId: string } | null {
-  try {
-    const u = new URL(url)
-    const parts = u.pathname.split('/')
-    // /file/{fileKey}/... or /design/{fileKey}/...
-    const fileKey = parts[2]
-    const rawNodeId = u.searchParams.get('node-id')
-    if (!fileKey || !rawNodeId) return null
-    // node-id may be '1-2' (new format) or '1:2'
-    const nodeId = rawNodeId.includes(':') ? rawNodeId : rawNodeId.replace('-', ':')
-    return { fileKey, nodeId }
-  } catch {
-    return null
-  }
-}
-
-async function fetchFigmaNodes(figmaUrl: string): Promise<TextNode[]> {
-  const parsed = parseFigmaUrl(figmaUrl)
-  if (!parsed) throw new Error(`Figma URL을 파싱할 수 없습니다: ${figmaUrl}`)
-
-  const res = await fetch(`/api/figma?fileKey=${encodeURIComponent(parsed.fileKey)}&nodeId=${encodeURIComponent(parsed.nodeId)}`)
+async function fetchFigmaTexts(figmaUrl: string): Promise<string[]> {
+  const res = await fetch('/api/figma', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: figmaUrl }),
+  })
   const data: unknown = await res.json()
   if (!res.ok) {
-    const msg = typeof data === 'object' && data !== null && 'error' in data
-      ? String((data as { error: unknown }).error)
-      : 'Figma 노드를 가져오는 데 실패했습니다.'
+    const msg =
+      typeof data === 'object' && data !== null && 'error' in data
+        ? String((data as { error: unknown }).error)
+        : 'Figma 텍스트를 가져오는 데 실패했습니다.'
     throw new Error(msg)
   }
-  return (data as { nodes: TextNode[] }).nodes
+  return (data as { texts: string[] }).texts
 }
 
-async function fetchWebNodes(webUrl: string): Promise<TextNode[]> {
+async function fetchWebTexts(webUrl: string): Promise<string[]> {
   const res = await fetch('/api/scrape', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -57,28 +43,33 @@ async function fetchWebNodes(webUrl: string): Promise<TextNode[]> {
   })
   const data: unknown = await res.json()
   if (!res.ok) {
-    const msg = typeof data === 'object' && data !== null && 'error' in data
-      ? String((data as { error: unknown }).error)
-      : '웹 페이지 스크래핑에 실패했습니다.'
+    const msg =
+      typeof data === 'object' && data !== null && 'error' in data
+        ? String((data as { error: unknown }).error)
+        : '웹 페이지 스크래핑에 실패했습니다.'
     throw new Error(msg)
   }
-  return (data as { nodes: TextNode[] }).nodes
+  return (data as { texts: string[] }).texts
 }
 
-async function runCompare(source: TextNode[], target: TextNode[]): Promise<{ results: CompareResult[]; summary: Summary }> {
+async function runCompare(
+  figmaTexts: string[],
+  webTexts: string[],
+): Promise<{ pairs: ComparePair[]; summary: Summary }> {
   const res = await fetch('/api/compare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ source, target }),
+    body: JSON.stringify({ figmaTexts, webTexts }),
   })
   const data: unknown = await res.json()
   if (!res.ok) {
-    const msg = typeof data === 'object' && data !== null && 'error' in data
-      ? String((data as { error: unknown }).error)
-      : '비교에 실패했습니다.'
+    const msg =
+      typeof data === 'object' && data !== null && 'error' in data
+        ? String((data as { error: unknown }).error)
+        : '비교에 실패했습니다.'
     throw new Error(msg)
   }
-  return data as { results: CompareResult[]; summary: Summary }
+  return data as { pairs: ComparePair[]; summary: Summary }
 }
 
 export default function ComparePage() {
@@ -102,22 +93,22 @@ export default function ComparePage() {
 
     const run = async () => {
       try {
-        setState({ phase: 'loading', message: 'Figma 소스 노드 추출 중…' })
-        const sourceNodes = await fetchFigmaNodes(src)
+        setState({ phase: 'loading', message: 'Figma 소스 텍스트 추출 중…' })
+        const figmaTexts = await fetchFigmaTexts(src)
 
-        let targetNodes: TextNode[]
+        let webTexts: string[]
         if (mode === 'A') {
-          setState({ phase: 'loading', message: 'Figma 타겟 노드 추출 중…' })
-          targetNodes = await fetchFigmaNodes(tgt)
+          setState({ phase: 'loading', message: 'Figma 타겟 텍스트 추출 중…' })
+          webTexts = await fetchFigmaTexts(tgt)
         } else {
           setState({ phase: 'loading', message: '웹 페이지 스크래핑 중…' })
-          targetNodes = await fetchWebNodes(web)
+          webTexts = await fetchWebTexts(web)
         }
 
         setState({ phase: 'loading', message: '텍스트 비교 중…' })
-        const { results, summary } = await runCompare(sourceNodes, targetNodes)
+        const { pairs, summary } = await runCompare(figmaTexts, webTexts)
 
-        setState({ phase: 'done', results, summary })
+        setState({ phase: 'done', pairs, summary })
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.'
         setState({ phase: 'error', message: msg })
@@ -125,7 +116,7 @@ export default function ComparePage() {
     }
 
     run()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -217,7 +208,7 @@ export default function ComparePage() {
               </p>
             </div>
             <ResultViewer
-              results={state.results}
+              pairs={state.pairs}
               summary={state.summary}
               sourceLabel={sourceLabel}
               targetLabel={targetLabel}

@@ -52,6 +52,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
   const [figmaSourceUrl, setFigmaSourceUrl] = useState('')
   const [figmaTargetUrl, setFigmaTargetUrl] = useState('')
   const [webUrl, setWebUrl] = useState('')
+  const [excludeHeaderFooter, setExcludeHeaderFooter] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -81,6 +82,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
         mode: 'B',
         src: figmaSourceUrl.trim(),
         web: webUrl.trim(),
+        ehf: excludeHeaderFooter ? 'true' : 'false',
       })
       router.push(`/compare?${params.toString()}`)
     }
@@ -126,6 +128,36 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
             onChange={setWebUrl}
           />
         </>
+      )}
+
+      {mode === 'B' && (
+        <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+          <div className="relative flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={excludeHeaderFooter}
+              onChange={(e) => setExcludeHeaderFooter(e.target.checked)}
+              className="sr-only"
+            />
+            <div
+              className={[
+                'w-4 h-4 rounded flex items-center justify-center border transition-all duration-150',
+                excludeHeaderFooter
+                  ? 'bg-[#5e6ad2] border-[#5e6ad2]'
+                  : 'bg-white/[0.04] border-white/[0.15] group-hover:border-white/30',
+              ].join(' ')}
+            >
+              {excludeHeaderFooter && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5 3.5 6 8 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+          </div>
+          <span className="text-[14px] text-white/50 group-hover:text-white/70 transition-colors duration-150">
+            헤더/푸터/내비게이션 제외
+          </span>
+        </label>
       )}
 
       {error && (

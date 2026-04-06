@@ -1,28 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { TextNode } from '@/types'
-import { sortByVisualFlow } from '@/lib/sort'
-import { compareNodes } from '@/lib/compare'
-
-interface CompareRequestBody {
-  source: TextNode[]
-  target: TextNode[]
-}
-
-function isTextNodeArray(value: unknown): value is TextNode[] {
-  if (!Array.isArray(value)) return false
-  return value.every(
-    (item) =>
-      typeof item === 'object' &&
-      item !== null &&
-      typeof (item as TextNode).id === 'string' &&
-      typeof (item as TextNode).text === 'string' &&
-      typeof (item as TextNode).x === 'number' &&
-      typeof (item as TextNode).y === 'number' &&
-      typeof (item as TextNode).width === 'number' &&
-      typeof (item as TextNode).height === 'number' &&
-      ((item as TextNode).source === 'figma' || (item as TextNode).source === 'web')
-  )
-}
+import { buildComparePairs } from '@/lib/compare'
 
 export async function POST(request: NextRequest) {
   let body: unknown
@@ -36,30 +13,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '요청 본문이 객체여야 합니다.' }, { status: 400 })
   }
 
-  const { source, target } = body as CompareRequestBody
+  const { figmaTexts, webTexts } = body as { figmaTexts?: unknown; webTexts?: unknown }
 
-  if (!isTextNodeArray(source)) {
-    return NextResponse.json({ error: 'source 필드가 유효한 TextNode 배열이어야 합니다.' }, { status: 400 })
+  if (!Array.isArray(figmaTexts) || !figmaTexts.every((t) => typeof t === 'string')) {
+    return NextResponse.json({ error: 'figmaTexts 필드가 string[] 이어야 합니다.' }, { status: 400 })
   }
 
-  if (!isTextNodeArray(target)) {
-    return NextResponse.json({ error: 'target 필드가 유효한 TextNode 배열이어야 합니다.' }, { status: 400 })
+  if (!Array.isArray(webTexts) || !webTexts.every((t) => typeof t === 'string')) {
+    return NextResponse.json({ error: 'webTexts 필드가 string[] 이어야 합니다.' }, { status: 400 })
   }
 
   try {
-    const sortedSource = sortByVisualFlow(source)
-    const sortedTarget = sortByVisualFlow(target)
-    const results = compareNodes(sortedSource, sortedTarget)
+    const pairs = buildComparePairs(figmaTexts as string[], webTexts as string[])
 
     const summary = {
-      total: results.length,
-      match: results.filter((r) => r.status === 'match').length,
-      mismatch: results.filter((r) => r.status === 'mismatch').length,
-      missing: results.filter((r) => r.status === 'missing').length,
-      added: results.filter((r) => r.status === 'added').length,
+      total:      pairs.length,
+      pass:       pairs.filter((p) => p.status === 'pass').length,
+      needs_edit: pairs.filter((p) => p.status === 'needs_edit').length,
+      figma_only: pairs.filter((p) => p.status === 'figma_only').length,
+      web_only:   pairs.filter((p) => p.status === 'web_only').length,
     }
 
-    return NextResponse.json({ results, summary })
+    return NextResponse.json({ pairs, summary })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.'
     return NextResponse.json({ error: message }, { status: 500 })

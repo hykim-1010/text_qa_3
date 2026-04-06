@@ -1,5 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server'
-import type { TextNode } from '@/types'
+import { load } from 'cheerio'
+
+type CheerioRoot = ReturnType<typeof load>
+
+// domhandler Element에서 필요한 필드만 추출
+interface DomEl {
+  tagName: string
+}
+
+const LEAF_TAGS = new Set(['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'figcaption', 'td', 'th'])
+const CONTAINER_TAGS = new Set(['div', 'section', 'article', 'main', 'aside', 'ul', 'ol', 'table', 'thead', 'tbody', 'tr'])
+
+function normalizeChunk(s: string): string {
+  return s.replace(/[\s\n\r]+/g, ' ').trim()
+}
+
+function collectChunks($: CheerioRoot, el: DomEl, out: string[]): void {
+  const $el = $(el as Parameters<typeof $>[0])
+  const tag = (el.tagName ?? '').toLowerCase()
+
+  if (LEAF_TAGS.has(tag)) {
+    const text = normalizeChunk($el.text())
+    if (text) out.push(text)
+    return
+  }
+
+  if (tag === 'a') {
+    const text = normalizeChunk($el.text())
+    if (text) out.push(text)
+    return
+  }
+
+  if (CONTAINER_TAGS.has(tag)) {
+    const children = $el.children().toArray() as DomEl[]
+    const hasBlockChild = children.some(
+      (c: DomEl) => LEAF_TAGS.has(c.tagName?.toLowerCase()) || CONTAINER_TAGS.has(c.tagName?.toLowerCase()),
+    )
+
+    if (!hasBlockChild) {
+      const $links = $el.find('a')
+      if ($links.length > 1) {
+        for (const a of $links.toArray() as DomEl[]) {
+          const t = normalizeChunk($(a as Parameters<typeof $>[0]).text())
+          if (t) out.push(t)
+        }
+        const $clone = $el.clone()
+        $clone.find('a').remove()
+        const rest = normalizeChunk($clone.text())
+        if (rest) out.push(rest)
+      } else {
+        const text = normalizeChunk($el.text())
+        if (text) out.push(text)
+      }
+      return
+    }
+
+    for (const child of $el.children().toArray() as DomEl[]) {
+      collectChunks($, child, out)
+    }
+    return
+  }
+
+  // 그 외 (inline 등)
+  const childEls = $el.children().toArray() as DomEl[]
+  if (childEls.length > 0) {
+    for (const child of childEls) collectChunks($, child, out)
+  } else {
+    const text = normalizeChunk($el.text())
+    if (text) out.push(text)
+  }
+}
 
 export async function POST(request: NextRequest) {
   let body: unknown
@@ -9,11 +79,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '요청 본문이 유효한 JSON이 아닙니다.' }, { status: 400 })
   }
 
-  if (typeof body !== 'object' || body === null || !('url' in body) || typeof (body as { url: unknown }).url !== 'string') {
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    !('url' in body) ||
+    typeof (body as { url: unknown }).url !== 'string'
+  ) {
     return NextResponse.json({ error: 'url 필드가 필요합니다.' }, { status: 400 })
   }
 
-  const url = (body as { url: string }).url
+  const { url } = body as { url: string }
 
   try {
     new URL(url)
@@ -22,82 +97,64 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { chromium } = await import('playwright')
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15_000)
 
-    const browser = await chromium.launch({ headless: true })
-    const page = await browser.newPage()
+    let html: string
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TextQABot/1.0)' },
+      })
+      clearTimeout(timeoutId)
 
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 })
-
-    const nodes: TextNode[] = await page.evaluate(() => {
-      const EXCLUDED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'HEAD', 'META', 'LINK'])
-      const results: TextNode[] = []
-      let counter = 0
-
-      function collectTextNodes(node: Node): void {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const el = node as Element
-          if (EXCLUDED_TAGS.has(el.tagName)) return
-
-          const style = window.getComputedStyle(el)
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return
-        }
-
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.textContent?.trim()
-          if (!text) return
-
-          const parent = node.parentElement
-          if (!parent) return
-
-          const parentTag = parent.tagName
-          if (EXCLUDED_TAGS.has(parentTag)) return
-
-          const parentStyle = window.getComputedStyle(parent)
-          if (
-            parentStyle.display === 'none' ||
-            parentStyle.visibility === 'hidden' ||
-            parentStyle.opacity === '0'
-          ) return
-
-          const rect = parent.getBoundingClientRect()
-          if (rect.width === 0 || rect.height === 0) return
-
-          results.push({
-            id: `web-${counter++}`,
-            text,
-            x: Math.round(rect.left),
-            y: Math.round(rect.top),
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
-            source: 'web',
-          })
-          return
-        }
-
-        for (const child of Array.from(node.childNodes)) {
-          collectTextNodes(child)
-        }
+      if (!res.ok) {
+        return NextResponse.json({ error: `HTTP ${res.status}: ${res.statusText}` }, { status: 502 })
       }
 
-      collectTextNodes(document.body)
-      return results
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('text/html')) {
+        return NextResponse.json(
+          { error: `HTML 문서가 아닙니다 (content-type: ${contentType})` },
+          { status: 422 },
+        )
+      }
+
+      html = await res.text()
+    } catch (fetchErr: unknown) {
+      clearTimeout(timeoutId)
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+      if (msg.toLowerCase().includes('abort')) {
+        return NextResponse.json({ error: '페이지 로드 시간이 초과되었습니다 (15초).' }, { status: 504 })
+      }
+      return NextResponse.json({ error: `페이지에 접근할 수 없습니다: ${msg}` }, { status: 502 })
+    }
+
+    const $ = load(html)
+
+    // 비콘텐츠 제거
+    $('script, style, noscript, iframe, object, embed, svg, template, [hidden]').remove()
+    // 헤더/푸터/내비게이션
+    $('header, footer, nav, aside').remove()
+    $('[role="banner"], [role="contentinfo"], [role="navigation"]').remove()
+    $('.header, .footer, #header, #footer').remove()
+    $('.nav, .navbar, .navigation, .gnb, .lnb').remove()
+    // 스크린리더 전용 / 시각적 숨김
+    $('[aria-hidden="true"]').remove()
+    $('.blind, .sr-only, .screen-reader-only, .visually-hidden, .visuallyhidden').remove()
+    $('.a11y-hidden, .accessibility-hidden, .skip, .offscreen, .off-screen').remove()
+
+    const texts: string[] = []
+    const $main = $('main').first()
+    const root = $main.length ? $main : $('body')
+
+    ;(root.children().toArray() as DomEl[]).forEach((child: DomEl) => {
+      collectChunks($, child, texts)
     })
 
-    await browser.close()
-
-    return NextResponse.json({ nodes })
+    return NextResponse.json({ texts })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.'
-
-    if (message.includes('net::ERR') || message.includes('ERR_NAME_NOT_RESOLVED')) {
-      return NextResponse.json({ error: `페이지에 접근할 수 없습니다: ${message}` }, { status: 502 })
-    }
-
-    if (message.includes('Timeout') || message.includes('timeout')) {
-      return NextResponse.json({ error: '페이지 로드 시간이 초과되었습니다 (30초).' }, { status: 504 })
-    }
-
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
