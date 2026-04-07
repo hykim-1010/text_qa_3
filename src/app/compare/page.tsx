@@ -171,7 +171,7 @@ export default function ComparePage() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 px-8 py-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 px-8 py-8 pb-24 max-w-7xl mx-auto w-full">
         {state.phase === 'loading' && (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <svg
@@ -222,21 +222,21 @@ export default function ComparePage() {
               targetLabel={targetLabel}
             />
             {/* 하단 홈 이동 버튼 */}
-            <div className="flex justify-center pt-4 pb-2">
-              <button
-                type="button"
-                onClick={() => router.push('/')}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-200 bg-white text-base text-gray-500 hover:text-gray-800 hover:border-gray-300 hover:bg-gray-50 transition-all duration-150"
-              >
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <path d="M8 2.5 4.5 6.5 8 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                다른 페이지 검수하기
-              </button>
-            </div>
           </div>
         )}
       </main>
+
+      {/* 다른 페이지 검수하기 플로팅 버튼 */}
+      <button
+        type="button"
+        onClick={() => router.push('/')}
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-6 py-3 rounded-full border border-gray-200 bg-white text-base text-gray-500 hover:text-gray-800 hover:border-gray-300 hover:bg-gray-50 shadow-md transition-all duration-150"
+      >
+        <svg width="15" height="15" viewBox="0 0 13 13" fill="none">
+          <path d="M8 2.5 4.5 6.5 8 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        다른 페이지 검수하기
+      </button>
 
       {/* TOP 버튼 */}
       {showTop && (

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "WebFetch(domain:www.hyosung.com)",
+      "Bash(curl -s \"https://www.hyosung.com/kr/sustainability/hyosung-esg\")"
     ]
   }
 }
