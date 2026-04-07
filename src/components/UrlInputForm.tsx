@@ -22,9 +22,9 @@ const Field = ({ label, hint, placeholder, value, onChange, index }: FieldProps)
     style={{ animation: `fadeSlideIn 200ms ${index * 60}ms ease both` }}
   >
     <div className="flex items-baseline justify-between gap-2">
-      <label className="text-[15px] font-medium text-white/60">{label}</label>
+      <label className="text-base font-medium text-gray-700">{label}</label>
       {hint && (
-        <span className="font-mono text-[12px] text-white/25">{hint}</span>
+        <span className="font-mono text-sm text-gray-400">{hint}</span>
       )}
     </div>
     <div className="relative">
@@ -35,12 +35,12 @@ const Field = ({ label, hint, placeholder, value, onChange, index }: FieldProps)
         onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
         className={[
-          'w-full h-11 rounded-md px-3.5 text-[15px] font-mono',
-          'bg-white/[0.04] border border-white/[0.09] text-white/80',
-          'placeholder:text-white/20',
+          'w-full h-11 rounded-md px-3.5 text-base font-mono',
+          'bg-white border border-gray-300 text-gray-900',
+          'placeholder:text-gray-400',
           'transition-all duration-150',
-          'focus:outline-none focus:border-[#5e6ad2]/60 focus:bg-[#5e6ad2]/[0.04]',
-          'focus:ring-1 focus:ring-[#5e6ad2]/30',
+          'focus:outline-none focus:border-[#5e6ad2] focus:bg-white',
+          'focus:ring-2 focus:ring-[#5e6ad2]/20',
         ].join(' ')}
       />
     </div>
@@ -144,7 +144,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
                 'w-4 h-4 rounded flex items-center justify-center border transition-all duration-150',
                 excludeHeaderFooter
                   ? 'bg-[#5e6ad2] border-[#5e6ad2]'
-                  : 'bg-white/[0.04] border-white/[0.15] group-hover:border-white/30',
+                  : 'bg-white border-gray-300 group-hover:border-gray-400',
               ].join(' ')}
             >
               {excludeHeaderFooter && (
@@ -154,19 +154,19 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
               )}
             </div>
           </div>
-          <span className="text-[14px] text-white/50 group-hover:text-white/70 transition-colors duration-150">
+          <span className="text-base text-gray-600 group-hover:text-gray-800 transition-colors duration-150">
             헤더/푸터/내비게이션 제외
           </span>
         </label>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" className="flex-shrink-0 text-red-400">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-red-50 border border-red-200">
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none" className="flex-shrink-0 text-red-500">
             <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.2" />
             <path d="M6.5 4v3M6.5 9h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
-          <p className="text-[14px] text-red-400">{error}</p>
+          <p className="text-base text-red-600">{error}</p>
         </div>
       )}
 
@@ -174,22 +174,18 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
         type="submit"
         disabled={loading}
         className={[
-          'h-11 rounded-md px-5 text-[15px] font-medium transition-all duration-150',
+          'h-11 rounded-md px-5 text-base font-medium transition-all duration-150',
           'flex items-center justify-center gap-2',
           loading
-            ? 'bg-[#5e6ad2]/50 text-white/40 cursor-not-allowed'
+            ? 'bg-[#5e6ad2]/50 text-white cursor-not-allowed'
             : 'bg-[#5e6ad2] text-white hover:bg-[#6b77d9] active:bg-[#5360c4]',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5e6ad2] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f0f0f]',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5e6ad2] focus-visible:ring-offset-2 focus-visible:ring-offset-white',
         ].join(' ')}
       >
         {loading ? (
           <>
-            <svg
-              width="13" height="13" viewBox="0 0 13 13"
-              className="animate-spin"
-              fill="none"
-            >
-              <circle cx="6.5" cy="6.5" r="5" stroke="white" strokeOpacity="0.3" strokeWidth="1.5" />
+            <svg width="14" height="14" viewBox="0 0 13 13" className="animate-spin" fill="none">
+              <circle cx="6.5" cy="6.5" r="5" stroke="white" strokeOpacity="0.4" strokeWidth="1.5" />
               <path d="M6.5 1.5A5 5 0 0 1 11.5 6.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
             분석 중…
@@ -197,7 +193,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
         ) : (
           <>
             비교 시작
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
               <path d="M2.5 6.5h8M7.5 4 10 6.5 7.5 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </>

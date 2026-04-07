@@ -1,4 +1,6 @@
 import { compareTwoStrings } from 'string-similarity'
+import { diffChars } from 'diff'
+import type { DiffChar } from '@/types'
 
 export type PairStatus = 'pass' | 'needs_edit' | 'figma_only' | 'web_only'
 
@@ -7,6 +9,7 @@ export interface ComparePair {
   webText: string | null
   status: PairStatus
   similarity?: number
+  diffs?: DiffChar[]  // needs_edit일 때만 존재
 }
 
 // 짝 허용 최소 유사도 (이 값 미만이면 매칭 안 함)
@@ -64,7 +67,13 @@ export function buildComparePairs(figmaTexts: string[], webTexts: string[]): Com
     const webOriginal = webTexts[wi]
     const status = normalizeForPass(figmaOriginal) === normalizeForPass(webOriginal) ? 'pass' : 'needs_edit'
 
-    pairs.push({ figmaText: figmaOriginal, webText: webOriginal, status, similarity: sim })
+    let diffs: DiffChar[] | undefined
+    if (status === 'needs_edit') {
+      diffs = diffChars(normalizeForPass(figmaOriginal), normalizeForPass(webOriginal))
+        .map(d => ({ value: d.value, added: d.added, removed: d.removed }))
+    }
+
+    pairs.push({ figmaText: figmaOriginal, webText: webOriginal, status, similarity: sim, diffs })
   }
 
   // 매칭 안 된 Figma → figma_only

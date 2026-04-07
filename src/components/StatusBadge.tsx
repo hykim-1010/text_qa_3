@@ -5,10 +5,10 @@ interface StatusBadgeProps {
 }
 
 const CONFIG: Record<PairStatus, { label: string; className: string }> = {
-  pass:       { label: '일치',    className: 'bg-green-500/10  border-green-500/20  text-green-400'  },
-  needs_edit: { label: '불일치',  className: 'bg-orange-500/10 border-orange-500/20 text-orange-400' },
-  figma_only: { label: 'Figma만', className: 'bg-red-500/10    border-red-500/20    text-red-400'    },
-  web_only:   { label: 'Web만',   className: 'bg-blue-500/10   border-blue-500/20   text-blue-400'   },
+  pass:       { label: '일치',    className: 'bg-green-50  border-green-200  text-green-700'  },
+  needs_edit: { label: '불일치',  className: 'bg-orange-50 border-orange-200 text-orange-700' },
+  figma_only: { label: 'Figma만', className: 'bg-red-50    border-red-200    text-red-700'    },
+  web_only:   { label: 'Web만',   className: 'bg-blue-50   border-blue-200   text-blue-700'   },
 }
 
 const StatusBadge = ({ status }: StatusBadgeProps) => {
@@ -17,8 +17,8 @@ const StatusBadge = ({ status }: StatusBadgeProps) => {
     <span
       className={[
         'inline-flex items-center justify-center',
-        'font-mono text-[11px] font-semibold tracking-wider uppercase',
-        'px-2 py-0.5 rounded border',
+        'font-mono text-xs font-semibold tracking-wide',
+        'px-2.5 py-1 rounded border',
         className,
       ].join(' ')}
     >
