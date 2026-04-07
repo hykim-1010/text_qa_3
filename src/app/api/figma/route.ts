@@ -17,7 +17,11 @@ function collectTextNodes(node: FigmaNode, out: string[], parentVisible = true):
   if (!visible) return
 
   if (node.type === 'TEXT' && typeof node.characters === 'string') {
-    const text = node.characters.trim()
+    const text = node.characters
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+      .replace(/[\n\r]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
     if (text) out.push(text)
   }
 

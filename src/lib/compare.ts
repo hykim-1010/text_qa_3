@@ -13,12 +13,16 @@ export interface ComparePair {
 const SIMILARITY_NEEDS_EDIT = 0.8
 
 function normalizeForPairing(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, ' ').trim()
+  return s.replace(/[\u200B\u200C\u200D\uFEFF]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-// Pass 판정용 — Figma 줄바꿈 정규화, Web 원문은 그대로 비교
-function normalizeFigmaForPass(s: string): string {
-  return s.replace(/\s*[\n\r]+\s*/g, ' ')
+// Pass 판정용 — 제로폭 문자 제거 후 줄바꿈/연속 공백을 단일 공백으로 정규화
+function normalizeForPass(s: string): string {
+  return s
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+    .replace(/\s*[\n\r]+\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export function buildComparePairs(figmaTexts: string[], webTexts: string[]): ComparePair[] {
@@ -58,7 +62,7 @@ export function buildComparePairs(figmaTexts: string[], webTexts: string[]): Com
 
     const figmaOriginal = figmaTexts[fi]
     const webOriginal = webTexts[wi]
-    const status = normalizeFigmaForPass(figmaOriginal) === webOriginal ? 'pass' : 'needs_edit'
+    const status = normalizeForPass(figmaOriginal) === normalizeForPass(webOriginal) ? 'pass' : 'needs_edit'
 
     pairs.push({ figmaText: figmaOriginal, webText: webOriginal, status, similarity: sim })
   }

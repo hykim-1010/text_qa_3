@@ -76,6 +76,13 @@ export default function ComparePage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [state, setState] = useState<State>({ phase: 'loading', message: '초기화 중…' })
+  const [showTop, setShowTop] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 300)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const mode = searchParams.get('mode') as 'A' | 'B' | null
   const src = searchParams.get('src') ?? ''
@@ -213,9 +220,35 @@ export default function ComparePage() {
               sourceLabel={sourceLabel}
               targetLabel={targetLabel}
             />
+            {/* 하단 홈 이동 버튼 */}
+            <div className="flex justify-center pt-4 pb-2">
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-white/[0.08] bg-white/[0.03] text-[13px] text-white/40 hover:text-white/70 hover:border-white/[0.15] hover:bg-white/[0.06] transition-all duration-150"
+              >
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <path d="M8 2.5 4.5 6.5 8 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                다른 페이지 검수하기
+              </button>
+            </div>
           </div>
         )}
       </main>
+      {/* TOP 버튼 */}
+      {showTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 z-40 w-9 h-9 flex items-center justify-center rounded-full border border-white/[0.10] bg-neutral-900 text-white/40 hover:text-white/80 hover:border-white/[0.20] shadow-lg transition-all duration-150"
+          aria-label="맨 위로"
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2.5 8.5 6.5 5l4 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

@@ -8,11 +8,22 @@ interface DomEl {
   tagName: string
 }
 
-const LEAF_TAGS = new Set(['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'figcaption', 'td', 'th'])
-const CONTAINER_TAGS = new Set(['div', 'section', 'article', 'main', 'aside', 'ul', 'ol', 'table', 'thead', 'tbody', 'tr'])
+// LEAF_TAGS: 내부 inline 요소(strong, em, span 등) 포함해 전체를 하나의 텍스트로 추출
+const LEAF_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'figcaption', 'td', 'th', 'dt'])
+// CONTAINER_TAGS: 블록 자식이 있으면 재귀, 없으면 전체 텍스트 추출
+const CONTAINER_TAGS = new Set(['div', 'section', 'article', 'main', 'aside', 'ul', 'ol', 'dl', 'table', 'thead', 'tbody', 'tr', 'li', 'dd'])
+// RICH_INLINE_TAGS: 재귀 중 만났을 때 .text() 전체를 하나로 추출 (br 등 자식이 있어도 텍스트 보존)
+const RICH_INLINE_TAGS = new Set(['strong', 'em', 'b', 'i', 'label', 'button'])
 
 function normalizeChunk(s: string): string {
   return s.replace(/[\s\n\r]+/g, ' ').trim()
+}
+
+// <br> 태그를 공백으로 대체한 뒤 텍스트 추출 (Cheerio .text()는 br을 무시하고 이어붙임)
+function textWithBr($: CheerioRoot, $el: ReturnType<typeof $>): string {
+  const $clone = $el.clone()
+  $clone.find('br').replaceWith(' ')
+  return normalizeChunk($clone.text())
 }
 
 function collectChunks($: CheerioRoot, el: DomEl, out: string[]): void {
@@ -20,13 +31,13 @@ function collectChunks($: CheerioRoot, el: DomEl, out: string[]): void {
   const tag = (el.tagName ?? '').toLowerCase()
 
   if (LEAF_TAGS.has(tag)) {
-    const text = normalizeChunk($el.text())
+    const text = textWithBr($, $el)
     if (text) out.push(text)
     return
   }
 
   if (tag === 'a') {
-    const text = normalizeChunk($el.text())
+    const text = textWithBr($, $el)
     if (text) out.push(text)
     return
   }
@@ -41,15 +52,16 @@ function collectChunks($: CheerioRoot, el: DomEl, out: string[]): void {
       const $links = $el.find('a')
       if ($links.length > 1) {
         for (const a of $links.toArray() as DomEl[]) {
-          const t = normalizeChunk($(a as Parameters<typeof $>[0]).text())
+          const t = textWithBr($, $(a as Parameters<typeof $>[0]))
           if (t) out.push(t)
         }
         const $clone = $el.clone()
         $clone.find('a').remove()
+        $clone.find('br').replaceWith(' ')
         const rest = normalizeChunk($clone.text())
         if (rest) out.push(rest)
       } else {
-        const text = normalizeChunk($el.text())
+        const text = textWithBr($, $el)
         if (text) out.push(text)
       }
       return
@@ -61,12 +73,19 @@ function collectChunks($: CheerioRoot, el: DomEl, out: string[]): void {
     return
   }
 
+  // RICH_INLINE_TAGS: br 등 자식이 있어도 텍스트 전체를 한 덩이로 추출
+  if (RICH_INLINE_TAGS.has(tag)) {
+    const text = textWithBr($, $el)
+    if (text) out.push(text)
+    return
+  }
+
   // 그 외 (inline 등)
   const childEls = $el.children().toArray() as DomEl[]
   if (childEls.length > 0) {
     for (const child of childEls) collectChunks($, child, out)
   } else {
-    const text = normalizeChunk($el.text())
+    const text = textWithBr($, $el)
     if (text) out.push(text)
   }
 }

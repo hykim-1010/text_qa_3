@@ -1,5 +1,6 @@
 import type { ComparePair, PairStatus } from '@/lib/compare'
 import StatusBadge from './StatusBadge'
+import CopyableText from './CopyableText'
 
 interface Summary {
   total: number
@@ -68,9 +69,7 @@ const ResultViewer = ({ pairs, summary, sourceLabel, targetLabel }: ResultViewer
             {/* Figma 텍스트 */}
             <div className="min-w-0">
               {pair.figmaText ? (
-                <span className="font-mono text-[13px] text-white/60 break-all whitespace-pre-wrap leading-relaxed">
-                  {pair.figmaText}
-                </span>
+                <CopyableText text={pair.figmaText} source="figma" />
               ) : (
                 <span className="text-[12px] text-white/20 italic">—</span>
               )}
@@ -84,9 +83,7 @@ const ResultViewer = ({ pairs, summary, sourceLabel, targetLabel }: ResultViewer
             {/* Web 텍스트 */}
             <div className="min-w-0">
               {pair.webText ? (
-                <span className="font-mono text-[13px] text-white/60 break-all whitespace-pre-wrap leading-relaxed">
-                  {pair.webText}
-                </span>
+                <CopyableText text={pair.webText} source="web" />
               ) : (
                 <span className="text-[12px] text-white/20 italic">—</span>
               )}
