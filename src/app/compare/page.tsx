@@ -36,11 +36,11 @@ async function fetchFigmaNodes(figmaUrl: string): Promise<TextNode[]> {
   return (data as { nodes: TextNode[] }).nodes
 }
 
-async function fetchWebNodes(webUrl: string): Promise<TextNode[]> {
+async function fetchWebNodes(webUrl: string, forceExpand: boolean): Promise<TextNode[]> {
   const res = await fetch('/api/scrape', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: webUrl }),
+    body: JSON.stringify({ url: webUrl, forceExpand }),
   })
   const data: unknown = await res.json()
   if (!res.ok) {
@@ -89,6 +89,7 @@ export default function ComparePage() {
   const src = searchParams.get('src') ?? ''
   const tgt = searchParams.get('tgt') ?? ''
   const web = searchParams.get('web') ?? ''
+  const forceExpand = searchParams.get('fex') === 'true'
 
   const sourceLabel = mode === 'A' ? 'Figma 기획서' : 'Figma 디자인 시안'
   const targetLabel = mode === 'A' ? 'Figma 디자인 시안' : '실서비스 Web'
@@ -110,7 +111,7 @@ export default function ComparePage() {
           webNodes = await fetchFigmaNodes(tgt)
         } else {
           setState({ phase: 'loading', message: '웹 페이지 스크래핑 중…' })
-          webNodes = await fetchWebNodes(web)
+          webNodes = await fetchWebNodes(web, forceExpand)
         }
 
         setState({ phase: 'loading', message: '텍스트 비교 중…' })

@@ -46,6 +46,33 @@ export async function POST(request: NextRequest) {
     const nodes = await fetchFigmaTextNodes(fileKey, nodeId)
     return NextResponse.json({ nodes })
   } catch (err: unknown) {
+    // axios 에러인 경우 HTTP 상태별 명확한 메시지 반환
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'response' in err &&
+      typeof (err as { response?: { status?: unknown } }).response?.status === 'number'
+    ) {
+      const status = (err as { response: { status: number } }).response.status
+      if (status === 429) {
+        return NextResponse.json(
+          { error: 'Figma API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.' },
+          { status: 429 },
+        )
+      }
+      if (status === 403) {
+        return NextResponse.json(
+          { error: 'Figma 접근 권한이 없습니다. Access Token 또는 파일 공유 설정을 확인해주세요.' },
+          { status: 403 },
+        )
+      }
+      if (status === 404) {
+        return NextResponse.json(
+          { error: 'Figma 파일 또는 노드를 찾을 수 없습니다. URL을 다시 확인해주세요.' },
+          { status: 404 },
+        )
+      }
+    }
     const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.'
     return NextResponse.json({ error: message }, { status: 500 })
   }

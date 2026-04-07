@@ -53,6 +53,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
   const [figmaTargetUrl, setFigmaTargetUrl] = useState('')
   const [webUrl, setWebUrl] = useState('')
   const [excludeHeaderFooter, setExcludeHeaderFooter] = useState(true)
+  const [forceExpand, setForceExpand] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -83,6 +84,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
         src: figmaSourceUrl.trim(),
         web: webUrl.trim(),
         ehf: excludeHeaderFooter ? 'true' : 'false',
+        fex: forceExpand ? 'true' : 'false',
       })
       router.push(`/compare?${params.toString()}`)
     }
@@ -131,6 +133,7 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
       )}
 
       {mode === 'B' && (
+        <>
         <label className="flex items-center gap-2.5 cursor-pointer select-none group">
           <div className="relative flex-shrink-0">
             <input
@@ -158,6 +161,34 @@ const UrlInputForm = ({ mode }: UrlInputFormProps) => {
             헤더/푸터/내비게이션 제외
           </span>
         </label>
+        <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+          <div className="relative flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={forceExpand}
+              onChange={(e) => setForceExpand(e.target.checked)}
+              className="sr-only"
+            />
+            <div
+              className={[
+                'w-4 h-4 rounded flex items-center justify-center border transition-all duration-150',
+                forceExpand
+                  ? 'bg-[#5e6ad2] border-[#5e6ad2]'
+                  : 'bg-white border-gray-300 group-hover:border-gray-400',
+              ].join(' ')}
+            >
+              {forceExpand && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5 3.5 6 8 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </div>
+          </div>
+          <span className="text-base text-gray-600 group-hover:text-gray-800 transition-colors duration-150">
+            숨겨진 콘텐츠 강제 추출 (아코디언·탭 포함)
+          </span>
+        </label>
+        </>
       )}
 
       {error && (

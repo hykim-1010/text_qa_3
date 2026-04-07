@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'url 필드가 필요합니다.' }, { status: 400 })
   }
 
-  const { url } = body as { url: string }
+  const { url, forceExpand = false } = body as { url: string; forceExpand?: boolean }
 
   try {
     new URL(url)
@@ -32,9 +32,65 @@ export async function POST(request: NextRequest) {
     const page = await browser.newPage()
 
     try {
-      await page.goto(url, { timeout: 15_000, waitUntil: 'domcontentloaded' })
-      // JS 렌더링 완료 대기 (SPA 등)
-      await page.waitForTimeout(1_500)
+      await page.goto(url, { timeout: 15_000, waitUntil: 'networkidle' })
+      await page.waitForTimeout(800)
+
+      // 페이지를 단계적으로 스크롤해 Intersection Observer 기반 모션 애니메이션 강제 발동
+      await page.evaluate(async () => {
+        await new Promise<void>(resolve => {
+          const distance = 400
+          const delay = 80
+          let scrolled = 0
+          const timer = setInterval(() => {
+            window.scrollBy(0, distance)
+            scrolled += distance
+            if (scrolled >= document.body.scrollHeight) {
+              clearInterval(timer)
+              window.scrollTo(0, 0)
+              resolve()
+            }
+          }, delay)
+        })
+      })
+      // 진입 애니메이션 완료 대기
+      await page.waitForTimeout(1_000)
+
+      // 숨겨진 콘텐츠 강제 펼치기 (아코디언·탭·details)
+      if (forceExpand) {
+        await page.evaluate(() => {
+          // 1) <details> 요소 전체 열기
+          document.querySelectorAll('details').forEach(el => { el.open = true })
+
+          // 2) aria 기반 아코디언: aria-expanded="false" 버튼 클릭
+          document.querySelectorAll<HTMLElement>('[aria-expanded="false"]').forEach(btn => btn.click())
+
+          // 3) 탭 패널: role="tabpanel" 강제 표시
+          document.querySelectorAll<HTMLElement>('[role="tabpanel"]').forEach(panel => {
+            panel.style.display = 'block'
+            panel.style.visibility = 'visible'
+            panel.removeAttribute('hidden')
+            panel.setAttribute('aria-hidden', 'false')
+          })
+
+          // 4) display:none 인 일반 콘텐츠 패널 강제 표시
+          //    (aria-hidden="true" 는 의도적 숨김이므로 제외)
+          document.querySelectorAll<HTMLElement>(
+            '[class*="accordion__content"], [class*="accordion-content"],' +
+            '[class*="collapse__body"], [class*="collapse-body"],' +
+            '[class*="tab__content"], [class*="tab-content"],' +
+            '[class*="panel__content"], [class*="panel-content"]'
+          ).forEach(el => {
+            if (el.getAttribute('aria-hidden') === 'true') return
+            const s = window.getComputedStyle(el)
+            if (s.display === 'none' || s.visibility === 'hidden') {
+              el.style.display = 'block'
+              el.style.visibility = 'visible'
+            }
+          })
+        })
+        // 아코디언 클릭 후 열림 애니메이션 완료 대기
+        await page.waitForTimeout(600)
+      }
     } catch (navErr: unknown) {
       const msg = navErr instanceof Error ? navErr.message : String(navErr)
       if (msg.toLowerCase().includes('timeout')) {
