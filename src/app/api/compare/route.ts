@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildComparePairs } from '@/lib/compare'
+import { sortByVisualFlow } from '@/lib/sort'
+import type { TextNode } from '@/types'
+
+function isTextNode(v: unknown): v is TextNode {
+  return (
+    typeof v === 'object' && v !== null &&
+    typeof (v as TextNode).id === 'string' &&
+    typeof (v as TextNode).text === 'string' &&
+    typeof (v as TextNode).x === 'number' &&
+    typeof (v as TextNode).y === 'number'
+  )
+}
 
 export async function POST(request: NextRequest) {
   let body: unknown
@@ -13,18 +25,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '요청 본문이 객체여야 합니다.' }, { status: 400 })
   }
 
-  const { figmaTexts, webTexts } = body as { figmaTexts?: unknown; webTexts?: unknown }
+  const { figmaNodes, webNodes } = body as { figmaNodes?: unknown; webNodes?: unknown }
 
-  if (!Array.isArray(figmaTexts) || !figmaTexts.every((t) => typeof t === 'string')) {
-    return NextResponse.json({ error: 'figmaTexts 필드가 string[] 이어야 합니다.' }, { status: 400 })
+  if (!Array.isArray(figmaNodes) || !figmaNodes.every(isTextNode)) {
+    return NextResponse.json({ error: 'figmaNodes 필드가 TextNode[] 이어야 합니다.' }, { status: 400 })
   }
 
-  if (!Array.isArray(webTexts) || !webTexts.every((t) => typeof t === 'string')) {
-    return NextResponse.json({ error: 'webTexts 필드가 string[] 이어야 합니다.' }, { status: 400 })
+  if (!Array.isArray(webNodes) || !webNodes.every(isTextNode)) {
+    return NextResponse.json({ error: 'webNodes 필드가 TextNode[] 이어야 합니다.' }, { status: 400 })
   }
 
   try {
-    const pairs = buildComparePairs(figmaTexts as string[], webTexts as string[])
+    // 각 배열을 시각적 순서(위→아래, 좌→우)로 정렬 후 비교
+    const sortedFigmaNodes = sortByVisualFlow(figmaNodes as TextNode[])
+    const sortedWebNodes = sortByVisualFlow(webNodes as TextNode[])
+    const pairs = buildComparePairs(sortedFigmaNodes, sortedWebNodes)
 
     const summary = {
       total:      pairs.length,

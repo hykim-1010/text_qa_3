@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { ComparePair } from '@/lib/compare'
+import type { TextNode } from '@/types'
 import ResultViewer from '@/components/ResultViewer'
 
 interface Summary {
@@ -18,7 +19,7 @@ type State =
   | { phase: 'error'; message: string }
   | { phase: 'done'; pairs: ComparePair[]; summary: Summary }
 
-async function fetchFigmaTexts(figmaUrl: string): Promise<string[]> {
+async function fetchFigmaNodes(figmaUrl: string): Promise<TextNode[]> {
   const res = await fetch('/api/figma', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,10 +33,10 @@ async function fetchFigmaTexts(figmaUrl: string): Promise<string[]> {
         : 'Figma 텍스트를 가져오는 데 실패했습니다.'
     throw new Error(msg)
   }
-  return (data as { texts: string[] }).texts
+  return (data as { nodes: TextNode[] }).nodes
 }
 
-async function fetchWebTexts(webUrl: string): Promise<string[]> {
+async function fetchWebNodes(webUrl: string): Promise<TextNode[]> {
   const res = await fetch('/api/scrape', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,17 +50,17 @@ async function fetchWebTexts(webUrl: string): Promise<string[]> {
         : '웹 페이지 스크래핑에 실패했습니다.'
     throw new Error(msg)
   }
-  return (data as { texts: string[] }).texts
+  return (data as { nodes: TextNode[] }).nodes
 }
 
 async function runCompare(
-  figmaTexts: string[],
-  webTexts: string[],
+  figmaNodes: TextNode[],
+  webNodes: TextNode[],
 ): Promise<{ pairs: ComparePair[]; summary: Summary }> {
   const res = await fetch('/api/compare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ figmaTexts, webTexts }),
+    body: JSON.stringify({ figmaNodes, webNodes }),
   })
   const data: unknown = await res.json()
   if (!res.ok) {
@@ -101,19 +102,19 @@ export default function ComparePage() {
     const run = async () => {
       try {
         setState({ phase: 'loading', message: 'Figma 소스 텍스트 추출 중…' })
-        const figmaTexts = await fetchFigmaTexts(src)
+        const figmaNodes = await fetchFigmaNodes(src)
 
-        let webTexts: string[]
+        let webNodes: TextNode[]
         if (mode === 'A') {
           setState({ phase: 'loading', message: 'Figma 타겟 텍스트 추출 중…' })
-          webTexts = await fetchFigmaTexts(tgt)
+          webNodes = await fetchFigmaNodes(tgt)
         } else {
           setState({ phase: 'loading', message: '웹 페이지 스크래핑 중…' })
-          webTexts = await fetchWebTexts(web)
+          webNodes = await fetchWebNodes(web)
         }
 
         setState({ phase: 'loading', message: '텍스트 비교 중…' })
-        const { pairs, summary } = await runCompare(figmaTexts, webTexts)
+        const { pairs, summary } = await runCompare(figmaNodes, webNodes)
 
         setState({ phase: 'done', pairs, summary })
       } catch (err: unknown) {
