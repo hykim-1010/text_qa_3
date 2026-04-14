@@ -221,6 +221,7 @@ export default function ComparePage() {
               summary={state.summary}
               sourceLabel={sourceLabel}
               targetLabel={targetLabel}
+              mode={mode ?? undefined}
             />
             {/* 하단 홈 이동 버튼 */}
           </div>

@@ -32,7 +32,9 @@ export async function POST(request: NextRequest) {
     const page = await browser.newPage()
 
     try {
-      await page.goto(url, { timeout: 15_000, waitUntil: 'networkidle' })
+      await page.goto(url, { timeout: 30_000, waitUntil: 'domcontentloaded' })
+      // 추가 리소스(이미지, 폰트 등) 로드 대기 (최대 5초)
+      await page.waitForLoadState('load', { timeout: 5_000 }).catch(() => {})
       await page.waitForTimeout(800)
 
       // 페이지를 단계적으로 스크롤해 Intersection Observer 기반 모션 애니메이션 강제 발동

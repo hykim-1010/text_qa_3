@@ -3,14 +3,18 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
+type TextSource = 'figma' | 'figma1' | 'figma2' | 'web'
+
 interface CopyableTextProps {
   text: string
-  source: 'figma' | 'web'
+  source: TextSource
 }
 
-const TOAST_LABEL: Record<'figma' | 'web', string> = {
-  figma: 'Figma 텍스트 복사완료',
-  web: 'WEB 텍스트 복사완료',
+const TOAST_LABEL: Record<TextSource, string> = {
+  figma:  'Figma 텍스트 복사완료',
+  figma1: 'Figma1 텍스트 복사완료',
+  figma2: 'Figma2 텍스트 복사완료',
+  web:    'WEB 텍스트 복사완료',
 }
 
 const CopyableText = ({ text, source }: CopyableTextProps) => {
@@ -33,7 +37,7 @@ const CopyableText = ({ text, source }: CopyableTextProps) => {
         title="클릭하여 복사"
         className="w-full text-left group"
       >
-        <span className="font-mono text-base text-gray-800 break-all whitespace-pre-wrap leading-[1.4] transition-colors group-hover:text-gray-900">
+        <span className="font-mono text-base text-gray-700 break-all whitespace-pre-wrap leading-[1.4] transition-colors group-hover:text-[#5e6ad2] group-hover:underline group-hover:underline-offset-2 cursor-copy">
           {text}
         </span>
       </button>
