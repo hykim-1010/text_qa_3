@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import type { ComparePair } from '@/lib/compare'
 import type { TextNode } from '@/types'
 import ResultViewer from '@/components/ResultViewer'
@@ -73,7 +73,7 @@ async function runCompare(
   return data as { pairs: ComparePair[]; summary: Summary }
 }
 
-export default function ComparePage() {
+function CompareContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [state, setState] = useState<State>({ phase: 'loading', message: '초기화 중…' })
@@ -254,5 +254,13 @@ export default function ComparePage() {
         </button>
       )}
     </div>
+  )
+}
+
+export default function ComparePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen text-gray-400">로딩 중…</div>}>
+      <CompareContent />
+    </Suspense>
   )
 }
