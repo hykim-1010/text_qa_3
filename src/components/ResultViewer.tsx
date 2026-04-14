@@ -16,6 +16,7 @@ interface ResultViewerProps {
   summary: Summary
   sourceLabel: string
   targetLabel: string
+  mode?: 'A' | 'B'
 }
 
 const ROW_BG: Record<PairStatus, string> = {
@@ -32,15 +33,15 @@ const SumCard = ({ label, value, color }: { label: string; value: number; color:
   </div>
 )
 
-const ResultViewer = ({ pairs, summary, sourceLabel, targetLabel }: ResultViewerProps) => {
+const ResultViewer = ({ pairs, summary, sourceLabel, targetLabel, mode }: ResultViewerProps) => {
   return (
     <div className="flex flex-col gap-6">
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <SumCard label="일치"    value={summary.pass}       color="border-green-200  bg-green-50  text-green-700"  />
         <SumCard label="불일치"  value={summary.needs_edit} color="border-orange-200 bg-orange-50 text-orange-700" />
-        <SumCard label="Figma만" value={summary.figma_only} color="border-red-200    bg-red-50    text-red-700"    />
-        <SumCard label="Web만"   value={summary.web_only}   color="border-blue-200   bg-blue-50   text-blue-700"   />
+        <SumCard label="Figma1만" value={summary.figma_only} color="border-red-200    bg-red-50    text-red-700"    />
+        <SumCard label={mode === 'A' ? 'Figma2만' : 'Web만'} value={summary.web_only} color="border-blue-200 bg-blue-50 text-blue-700" />
       </div>
 
       {/* 결과 테이블 헤더 */}
@@ -71,9 +72,14 @@ const ResultViewer = ({ pairs, summary, sourceLabel, targetLabel }: ResultViewer
             <div className="min-w-0">
               {pair.figmaText ? (
                 pair.status === 'needs_edit' && pair.diffs ? (
-                  <DiffHighlight diffs={pair.diffs} side="source" />
+                  <DiffHighlight
+                    diffs={pair.diffs}
+                    side="source"
+                    copyText={pair.figmaText}
+                    toastLabel={mode === 'A' ? 'Figma1 텍스트 복사완료' : 'Figma 텍스트 복사완료'}
+                  />
                 ) : (
-                  <CopyableText text={pair.figmaText} source="figma" />
+                  <CopyableText text={pair.figmaText} source={mode === 'A' ? 'figma1' : 'figma'} />
                 )
               ) : (
                 <span className="text-base text-gray-300 italic">—</span>
@@ -82,16 +88,21 @@ const ResultViewer = ({ pairs, summary, sourceLabel, targetLabel }: ResultViewer
 
             {/* 상태 뱃지 */}
             <div className="flex justify-center">
-              <StatusBadge status={pair.status} />
+              <StatusBadge status={pair.status} mode={mode} />
             </div>
 
-            {/* Web 텍스트 */}
+            {/* Web / Figma2 텍스트 */}
             <div className="min-w-0">
               {pair.webText ? (
                 pair.status === 'needs_edit' && pair.diffs ? (
-                  <DiffHighlight diffs={pair.diffs} side="target" />
+                  <DiffHighlight
+                    diffs={pair.diffs}
+                    side="target"
+                    copyText={pair.webText}
+                    toastLabel={mode === 'A' ? 'Figma2 텍스트 복사완료' : 'WEB 텍스트 복사완료'}
+                  />
                 ) : (
-                  <CopyableText text={pair.webText} source="web" />
+                  <CopyableText text={pair.webText} source={mode === 'A' ? 'figma2' : 'web'} />
                 )
               ) : (
                 <span className="text-base text-gray-300 italic">—</span>
